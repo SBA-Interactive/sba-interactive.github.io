@@ -1,0 +1,1 @@
+import{u as c,N as h,v as k,A,ac as S}from"./render.BWA1jrsg.js";function u(r,i){return r===i||r?.[S]===i}function d(r={},i,a,b){return c(()=>{var f,s;return h(()=>{f=s,s=b?.()||[],k(()=>{r!==a(...s)&&(i(r,...s),f&&u(a(...f),r)&&i(null,...f))})}),()=>{A(()=>{s&&u(a(...s),r)&&i(null,...s)})}}),r}export{d as b};
