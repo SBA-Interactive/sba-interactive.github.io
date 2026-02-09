@@ -1,13 +1,13 @@
 <?php
 // Database configuration
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'sba_database');
-define('DB_USER', 'sba_user');
-define('DB_PASS', 'sba_password');
+define('DB_NAME', 'sbai_contact');
+define('DB_USER', 'sbai_contact');
+define('DB_PASS', 'dAscgJFWeZu4AFypMBeP');
 
 // Email configuration
-define('ADMIN_EMAIL', 'contact@sbainteractive.com');
-define('EMAIL_FROM', 'no-reply@sbainteractive.com');
+define('ADMIN_EMAIL', 'contact@sbaint.eu');
+define('EMAIL_FROM', 'no-reply@sbaint.eu');
 define('EMAIL_SUBJECT_PREFIX', '[SBA Interactive] ');
 
 // Error reporting (disable in production)
