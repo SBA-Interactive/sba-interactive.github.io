@@ -1,0 +1,179 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SBA Interactive | CMS</title>
+    <style>
+      .nc-app-header-logo { font-weight: 900 !important; letter-spacing: -0.05em !important; text-transform: uppercase !important; }
+      body { background: #f1f5f9; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <!-- Load React/ReactDOM separately to ensure they are available for the custom auth component -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Load Decap CMS -->
+    <script src="https://unpkg.com/decap-cms@^3.0.0/dist/decap-cms.js"></script>
+    
+    <script>
+      (function() {
+        console.log("CMS: Initializing Custom Backend...");
+
+        function MyBackend(config) {
+          this.config = config;
+          this.apiUrl = './api.php';
+          console.log("CMS: Backend Instance Created");
+        }
+
+        MyBackend.prototype.authComponent = function() {
+          const h = window.h || window.CMS.h;
+          const React = window.React || window.CMS.React;
+          
+          return class Login extends React.Component {
+            constructor(props) {
+              super(props);
+              this.state = { username: '', password: '' };
+            }
+            render() {
+              return h('div', {
+                style: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f1f5f9' }
+              }, [
+                h('form', {
+                  onSubmit: (e) => { e.preventDefault(); this.props.onLogin(this.state); },
+                  style: { backgroundColor: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', width: '320px', display: 'flex', flexDirection: 'column', gap: '16px' }
+                }, [
+                  h('h1', { style: { textAlign: 'center', margin: '0 0 8px 0', fontSize: '20px', fontWeight: '900' } }, 'SBA INTERACTIVE'),
+                  h('input', {
+                    type: 'text', placeholder: 'Username', value: this.state.username,
+                    onChange: (e) => this.setState({ username: e.target.value }),
+                    style: { padding: '10px', border: '1px solid #e2e8f0', borderRadius: '4px' }
+                  }),
+                  h('input', {
+                    type: 'password', placeholder: 'Password', value: this.state.password,
+                    onChange: (e) => this.setState({ password: e.target.value }),
+                    style: { padding: '10px', border: '1px solid #e2e8f0', borderRadius: '4px' }
+                  }),
+                  h('button', {
+                    type: 'submit',
+                    style: { padding: '10px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }
+                  }, 'Sign In'),
+                  this.props.error && h('p', { style: { color: '#ef4444', fontSize: '14px', textAlign: 'center', margin: '0' } }, 'Invalid credentials')
+                ])
+              ]);
+            }
+          };
+        };
+
+        MyBackend.prototype.restoreUser = function() {
+          console.log("CMS: restoreUser called");
+          return this.currentUser();
+        };
+
+        MyBackend.prototype.currentUser = function() {
+          const token = localStorage.getItem('cms_token');
+          if (!token) return Promise.resolve(null);
+          return fetch(`${this.apiUrl}?action=user`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          })
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null);
+        };
+
+        MyBackend.prototype.authenticate = function(creds) {
+          return fetch(`${this.apiUrl}?action=login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(creds)
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.error) throw new Error(data.error);
+            localStorage.setItem('cms_token', data.token);
+            return data.user;
+          });
+        };
+
+        MyBackend.prototype.logout = function() {
+          localStorage.removeItem('cms_token');
+          return Promise.resolve();
+        };
+
+        MyBackend.prototype.getToken = function() {
+          return Promise.resolve(localStorage.getItem('cms_token'));
+        };
+
+        MyBackend.prototype.entriesByFolder = function(collection) {
+          return fetch(`${this.apiUrl}?action=list_entries&collection=` + collection.get('name'))
+            .then(r => r.json())
+            .then(entries => entries.map(e => ({ data: e.data, slug: e.slug, path: e.slug })));
+        };
+
+        MyBackend.prototype.entriesByFiles = function(collection) {
+          const files = collection.get('files').toJS();
+          return Promise.all(files.map(f => 
+            fetch(`${this.apiUrl}?action=get_entry&collection=` + collection.get('name') + '&slug=' + f.name)
+              .then(r => r.json())
+              .then(data => ({ data: data, label: f.label, path: f.file, slug: f.name }))
+          ));
+        };
+
+        MyBackend.prototype.getEntry = function(collection, slug) {
+          return fetch(`${this.apiUrl}?action=get_entry&collection=` + collection.get('name') + '&slug=' + slug)
+            .then(r => r.json())
+            .then(data => ({ data: data, slug: slug }));
+        };
+
+        MyBackend.prototype.persistEntry = function(entry) {
+          const token = localStorage.getItem('cms_token');
+          return fetch(`${this.apiUrl}?action=save_entry`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({
+              collection: entry.get('collection'),
+              slug: entry.get('slug'),
+              data: entry.get('data').toJS()
+            })
+          }).then(r => r.json());
+        };
+
+        MyBackend.prototype.getMedia = function() {
+          return fetch(`${this.apiUrl}?action=get_media`).then(r => r.json());
+        };
+
+        MyBackend.prototype.persistMedia = function(mediaFile) {
+          const fd = new FormData();
+          fd.append('file', mediaFile.fileObj);
+          const token = localStorage.getItem('cms_token');
+          return fetch(`${this.apiUrl}?action=upload_media`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: fd
+          })
+          .then(r => r.json())
+          .then(d => ({ id: d.url, name: mediaFile.name, size: mediaFile.size, url: d.url, path: d.path }));
+        };
+
+        MyBackend.prototype.deleteFile = function(path) {
+          const token = localStorage.getItem('cms_token');
+          return fetch(`${this.apiUrl}?action=delete_file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ path: path })
+          }).then(r => r.json());
+        };
+
+        // Decap CMS 3.x sometimes expects this
+        MyBackend.prototype.getDeployPreview = function() { return null; };
+
+        if (window.CMS) {
+          window.CMS.registerBackend('my_custom_backend', MyBackend);
+          console.log("CMS: Backend Registered Successfully");
+        } else {
+          console.error("CMS: global CMS object not found!");
+        }
+      })();
+    </script>
+  </body>
+</html>
